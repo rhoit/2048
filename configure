@@ -1,5 +1,11 @@
 #!/bin/bash
 
+git submodule init
+git submodule update
+
 > /dev/null which figlet || {
     echo "install 'figlet' to display large characters."
 }
+
+git describe --tags > .version
+cat .version

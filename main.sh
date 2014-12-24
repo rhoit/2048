@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 
-# variables
-declare -i board_size=4
-target=2048
-
 function Usage {
     echo -e "Usage:  2048 [OPTIONS]";
     echo -e "\t-b | --board\tboard size"
     echo -e "\t-l | --level\tlevel 3-9"
     echo -e "\t-d | --debug\tdebug info"
     echo -e "\t-h | --help\tDisplay this message"
+    echo -e "\t-v | --version\tversion information"
 }
 
-TEMP=$(getopt -o b:l:d:h\
-              -l board:,level,debug,help\
+TEMP=$(getopt -o b:l:dhv\
+              -l board:,level:,debug,help,version\
               -n "2048"\
               -- "$@")
 
@@ -21,14 +18,18 @@ if [ $? != "0" ]; then exit 1; fi
 
 eval set -- "$TEMP"
 
+board_size=4
+target=2048
+
 while true; do
-	case $1 in
-		-b|--board) board_size=$2; shift 2;;
-		-l|--level) level=$2; shift 2;;
-		-d|--debug) exec 3>$2; shift 2;;
-		-h|--help)  Usage; exit;;
-		--)         shift; break
-	esac
+    case $1 in
+        -b|--board)   board_size=$2; shift 2;;
+        -l|--level)   level=$2; shift 2;;
+        -d|--debug)   exec 3>$2; shift 2;;
+        -h|--help)    Usage; exit;;
+        -v|--version) cat $WD/version; exit;;
+        --)           shift; break
+    esac
 done
 
 # extra argument
@@ -40,40 +41,63 @@ done
 #----------------------------------------------------------------------
 # late loading
 
-WD="$(dirname $(readlink $0 || echo $0))"
+c0="\e[1;m"
+c1="\e[1;31m"
+c2="\e[1;38;5;22m"
+c3="\e[1;32m"
+c4="\e[1;38;5;226m"
+c5="\e[1;34m"
+c6="\e[1;35m"
 
-header="2048 (https://github.com/rhoit/2048)"
-export WD
-source $WD/board.sh
+header="${c1}2${c4}0${c5}4${c3}8${c0} (https://github.com/rhoit/2048)"
 
-declare score=0
-declare moves=0
+_colors[0]="\e[m"
+_colors[2]="\e[1;33;48;5;24m"
+_colors[4]="\e[1;39;48;5;12m"
+_colors[8]="\e[1;38;5;227;48;5;202m"
+_colors[16]="\e[1;39;48;5;208m"
+_colors[32]="\e[1;39;48;5;9m"
+_colors[64]="\e[1;39;48;5;1m"
+_colors[128]="\e[46;39m"
+_colors[256]="\e[48;5;27;39m"
+_colors[512]="\e[1;38;5;9;48;5;11m"
+_colors[1024]="\e[1;38;5;22;48;5;226m"
+_colors[2048]="\e[1;38;5;8;48;5;237m"
+
+
+FILE_CONFIG="$HOME/.cache/2048"
+
+export WD="$(dirname $(readlink $0 || echo $0))"
+export WD_BOARD=$WD/ASCII-board
+
+source $WD_BOARD/board.sh
+
+score=0 moves=0 won_flag=0
 declare ESC=$'\e' # escape byte
 
 #exec 3>/dev/null # no logging by default
 #printf "debug mode on" >&3
 
-won_flag=0
 trap "end_game 0; exit" INT #handle INT signal
 
 function generate_piece {
-	change=1
-	while (( blocks < N )); do
-		let index=RANDOM%N
-		let board[index] || {
-			local val=$((RANDOM%10?2:4))
-			let blocks++
-			# just for some delay effects/invert color
-			local r=$((index/board_size))
-			local c=$((index-r*board_size))
-			local c_temp=${_colors[val]}
-			_colors[$val]="\033[30;48;5;15m"
-			box_board_block_update $r $c $val
-			_colors[$val]=$c_temp
-			let board[index]=val
-			break;
-		}
-	done
+    change=1
+    while (( blocks < N )); do
+        let index=RANDOM%N
+        let board[index] || {
+            local val=$((RANDOM%10?2:4))
+            let blocks++
+            # just for some delay effects/invert color
+            local r=$((index/board_size))
+            local c=$((index-r*board_size))
+            local c_temp=${_colors[val]}
+            _colors[$val]="\e[30;48;5;15m"
+            box_board_block_update $r $c $val
+            _colors[$val]=$c_temp
+            let board[index]=val
+            break;
+        }
+    done
 }
 
 # perform push operation between two blocks
@@ -85,82 +109,82 @@ function generate_piece {
 #   $5 - if anything is passed, do not perform the push, only update number of valid moves
 
 function push_blocks {
-	case $4 in
-		u) let "first=$2*board_size+$1";
-		   let "second=($2+$3)*board_size+$1";;
-		d) let "first=(index_max-$2)*board_size+$1";
-		   let "second=(index_max-$2-$3)*board_size+$1";;
-		l) let "first=$1*board_size+$2";
-		   let "second=$1*$board_size+($2+$3)";;
-		r) let "first=$1*$board_size+(index_max-$2)";
-		   let "second=$1*$board_size+(index_max-$2-$3)";;
-	esac
+    case $4 in
+        u) let "first=$2*board_size+$1";
+           let "second=($2+$3)*board_size+$1";;
+        d) let "first=(index_max-$2)*board_size+$1";
+           let "second=(index_max-$2-$3)*board_size+$1";;
+        l) let "first=$1*board_size+$2";
+           let "second=$1*$board_size+($2+$3)";;
+        r) let "first=$1*$board_size+(index_max-$2)";
+           let "second=$1*$board_size+(index_max-$2-$3)";;
+    esac
 
-	let ${board[$first]} || {
-		let ${board[$second]} && {
-			if test -z $5; then
-				board[$first]=${board[$second]}
-				let board[$second]=0
-				let change=1
-			else
-				let next_mov++
-			fi
-		}
-		return
-	}
+    let ${board[$first]} || {
+        let ${board[$second]} && {
+            if test -z $5; then
+                board[$first]=${board[$second]}
+                let board[$second]=0
+                let change=1
+            else
+                let next_mov++
+            fi
+        }
+        return
+    }
 
-	let ${board[$second]} && let flag_skip=1
-	let "${board[$first]}==${board[second]}" && {
-		if test -z $5; then
-			let board[$first]*=2
-			test "${board[first]}" = "$target" && won_flag=1
-			let board[$second]=0
-			let blocks-=1
-			let change=1
-			let score+=${board[$first]}
-		else
-			let next_mov++
-		fi
-	}
+    let ${board[$second]} && let flag_skip=1
+    let "${board[$first]}==${board[second]}" && {
+        if test -z $5; then
+            let board[$first]*=2
+            test "${board[first]}" = "$target" && won_flag=1
+            let board[$second]=0
+            let blocks-=1
+            let change=1
+            let score+=${board[$first]}
+        else
+            let next_mov++
+        fi
+    }
 }
 
 function apply_push { # $1: direction; $2: mode
-	for ((i=0; i <= $index_max; i++)); do
-		for ((j=0; j <= $index_max; j++)); do
-			flag_skip=0
-			let increment_max=index_max-j
-			for ((k=1; k <= $increment_max; k++)); do
-				let flag_skip && break
-				push_blocks $i $j $k $1 $2
-			done
-		done
-	done
-	let won_flag && end_game 1
+    for ((i=0; i <= $index_max; i++)); do
+        for ((j=0; j <= $index_max; j++)); do
+            flag_skip=0
+            let increment_max=index_max-j
+            for ((k=1; k <= $increment_max; k++)); do
+                let flag_skip && break
+                push_blocks $i $j $k $1 $2
+            done
+        done
+    done
+    let won_flag && end_game 1
 }
 
 function check_moves {
-	next_mov=0
-	apply_push u fake
-	apply_push d fake
-	apply_push l fake
-	apply_push r fake
-	let next_mov==0 && end_game 0
+    next_mov=0
+    apply_push u fake
+    apply_push d fake
+    apply_push l fake
+    apply_push r fake
+    let next_mov==0 && end_game 0
 }
 
 function key_react {
-	read -d '' -sn 1
-	test "$REPLY" = "$ESC" && {
-		read -d '' -sn 1 -t1
-		test "$REPLY" = "[" && {
-			read -d '' -sn 1 -t1
-			case $REPLY in
-				A) apply_push u;;
-				B) apply_push d;;
-				C) apply_push r;;
-				D) apply_push l;;
-			esac
-		}
-	}
+    read -d '' -sn 1
+    test "$REPLY" = "$ESC" && {
+        read -d '' -sn 1 -t1
+        test "$REPLY" = "[" && {
+            read -d '' -sn 1 -t1
+            case $REPLY in
+                A) apply_push u;;
+                B) apply_push d;;
+                C) apply_push r;;
+                D) apply_push l;;
+            esac
+        }
+    }
 }
 
 function figlet_wrap {
@@ -175,62 +199,68 @@ function figlet_wrap {
 }
 
 function end_game {
-	if (( $1 == 1 )); then
-		box_board_update
-		status="YOU WON"
-		tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
-		tput cup $LINES 0;
-		echo -n "Want to keep on going (Y/N): "
-		read -d '' -sn 1 result > /dev/null
-		if [[ $result != 'n' && $result != 'N' ]]; then
-			echo -n "Y"
-			target="∞"
-			won_flag=0
-			tput cup 0 0
-			box_board_print $index_max
-			unset old_board
-			return
-		fi
-	else
-		status="GAME OVER"
-		tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
-	fi
+    if (( $1 == 1 )); then
+        box_board_update
+        status="YOU WON"
+        tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
+        tput cup $LINES 0;
+        echo -n "Want to keep on going (Y/N): "
+        read -d '' -sn 1 result > /dev/null
+        if [[ $result != 'n' && $result != 'N' ]]; then
+            echo -n "Y"
+            target="∞"
+            won_flag=0
+            tput cup 2 0
+            box_board_print $board_size
+            unset old_board
+            return
+        fi
+    else
+        status="GAME OVER"
+        tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
+    fi
 
-	box_board_terminate
-	exit
+    box_board_terminate
+    exit
+}
+
+function status {
+	printf "blocks: %-9d" "$blocks"
+	printf "score: %-9d" "$score"
+	printf "moves: %-9d" "$moves"
+	printf "target: %-9s" "$target"
+	echo
 }
 
 function main {
-	let N=board_size*board_size
-	let index_max=board_size-1
+    let N="board_size * board_size"
+    let index_max="board_size - 1"
 
-	let blocks=0
-	for ((i=0; i < N; i++)); do
-		let board[i]=0 #$i%3?0:1024
-		# let board[i] && let blocks++
-	done
+    let blocks=0
+    for ((i=0; i < N; i++)); do
+        let old_board[i]=0
+        let board[i]=0 #$i%3?0:1024
+        # let board[i] && let blocks++
+    done
 
-	# board[0]=0
-	# board[4]=0
-	# board[12]=2
+    box_board_init $board_size
+    echo -e $header
+    status
+    box_board_print $board_size
 
-	box_board_init $board_size
-	clear
-	box_board_print $index_max
+    generate_piece
+    while true; do
+        let change && {
+            generate_piece
+            tput cup 1 0; status
+            box_board_update
+            change=0
+            let moves++
+        } #<&-
 
-	generate_piece
-	while true; do
-		let change && {
-			generate_piece
-			box_board_update
-			change=0
-			let moves++
-			#sleep .01 &
-		} #<&-
-
-		key_react # before end game check, so player can see last board state
-		let blocks==N && check_moves
-	done
+        key_react # before end game check, so player can see last board state
+        let blocks==N && check_moves
+    done
 }
 
 main
