@@ -64,9 +64,6 @@ _colors[512]="\e[1;38;5;9;48;5;11m"
 _colors[1024]="\e[1;38;5;22;48;5;226m"
 _colors[2048]="\e[1;38;5;8;48;5;237m"
 
-
-FILE_CONFIG="$HOME/.cache/2048"
-
 export WD="$(dirname $(readlink $0 || echo $0))"
 export WD_BOARD=$WD/ASCII-board
 
@@ -87,6 +84,7 @@ function generate_piece {
         let board[index] || {
             local val=$((RANDOM%10?2:4))
             let blocks++
+
             # just for some delay effects/invert color
             local r=$((index/board_size))
             local c=$((index-r*board_size))
@@ -94,6 +92,7 @@ function generate_piece {
             _colors[$val]="\e[30;48;5;15m"
             box_board_block_update $r $c $val
             _colors[$val]=$c_temp
+
             let board[index]=val
             break;
         }
@@ -110,20 +109,20 @@ function generate_piece {
 
 function push_blocks {
     case $4 in
-        u) let "first=$2*board_size+$1";
-           let "second=($2+$3)*board_size+$1";;
-        d) let "first=(index_max-$2)*board_size+$1";
-           let "second=(index_max-$2-$3)*board_size+$1";;
-        l) let "first=$1*board_size+$2";
-           let "second=$1*$board_size+($2+$3)";;
-        r) let "first=$1*$board_size+(index_max-$2)";
-           let "second=$1*$board_size+(index_max-$2-$3)";;
+        u) let first_="$2 * board_size + $1";
+           let second="($2 + $3) * board_size + $1";;
+        d) let first_="(board_size - 1 - $2) * board_size + $1";
+           let second="(board_size - 1 - $2 - $3) * board_size + $1";;
+        l) let first_="$1 * board_size + $2";
+           let second="$1 * board_size + ($2 + $3)";;
+        r) let first_="$1 * board_size + (board_size - 1 - $2)";
+           let second="$1 * board_size + (board_size - 1 - $2 - $3)";;
     esac
 
-    let ${board[$first]} || {
+    let ${board[$first_]} || {
         let ${board[$second]} && {
             if test -z $5; then
-                board[$first]=${board[$second]}
+                board[$first_]=${board[$second]}
                 let board[$second]=0
                 let change=1
             else
@@ -134,14 +133,14 @@ function push_blocks {
     }
 
     let ${board[$second]} && let flag_skip=1
-    let "${board[$first]}==${board[second]}" && {
+    let "${board[$first_]}==${board[second]}" && {
         if test -z $5; then
-            let board[$first]*=2
-            test "${board[first]}" = "$target" && won_flag=1
+            let board[$first_]*=2
+            test "${board[first_]}" = "$target" && won_flag=1
             let board[$second]=0
             let blocks-=1
             let change=1
-            let score+=${board[$first]}
+            let score+=${board[$first_]}
         else
             let next_mov++
         fi
@@ -149,10 +148,10 @@ function push_blocks {
 }
 
 function apply_push { # $1: direction; $2: mode
-    for ((i=0; i <= $index_max; i++)); do
-        for ((j=0; j <= $index_max; j++)); do
+    for ((i=0; i < $board_size; i++)); do
+        for ((j=0; j < $board_size; j++)); do
             flag_skip=0
-            let increment_max=index_max-j
+            let increment_max="board_size - 1 - j"
             for ((k=1; k <= $increment_max; k++)); do
                 let flag_skip && break
                 push_blocks $i $j $k $1 $2
@@ -232,9 +231,16 @@ function status {
 	echo
 }
 
+function box_board_refresh_hook {
+    # this function is overrides the box_board method
+    box_board_init $board_size
+    echo -e $header
+    status
+    box_board_print $board_size
+}
+
 function main {
     let N="board_size * board_size"
-    let index_max="board_size - 1"
 
     let blocks=0
     for ((i=0; i < N; i++)); do
@@ -243,16 +249,13 @@ function main {
         # let board[i] && let blocks++
     done
 
-    box_board_init $board_size
-    echo -e $header
-    status
-    box_board_print $board_size
+    box_board_refresh_hook
 
     generate_piece
     while true; do
         let change && {
             generate_piece
-            tput cup 1 0; status
+            box_board_tput_status; status
             box_board_update
             change=0
             let moves++
