@@ -21,6 +21,8 @@ eval set -- "$TEMP"
 board_size=4
 target=2048
 
+exec 3> /dev/null
+
 while true; do
     case $1 in
         -b|--board)   board_size=$2; shift 2;;
@@ -31,6 +33,9 @@ while true; do
         --)           shift; break
     esac
 done
+
+#exec 3>/tmp/gtmp
+exec 2>&3 # redirecting errors
 
 # extra argument
 for arg do
@@ -70,10 +75,7 @@ export WD_BOARD=$WD/ASCII-board
 source $WD_BOARD/board.sh
 
 score=0 moves=0 won_flag=0
-declare ESC=$'\e' # escape byte
-
-#exec 3>/dev/null # no logging by default
-#printf "debug mode on" >&3
+ESC=$'\e' # escape byte
 
 trap "end_game 0; exit" INT #handle INT signal
 
@@ -86,12 +88,14 @@ function generate_piece {
             let blocks++
 
             # just for some delay effects/invert color
-            local r=$((index/board_size))
-            local c=$((index-r*board_size))
-            local c_temp=${_colors[val]}
-            _colors[$val]="\e[30;48;5;15m"
-            box_board_block_update $r $c $val
-            _colors[$val]=$c_temp
+            # NOTE: this is the dirty hack!
+            # local r=$((index/board_size))
+            # local c=$((index-r*board_size))
+            # local c_temp=${_colors[val]}
+            # _colors[$val]="\e[30;48;5;15m"
+            # LINES=$(tput lines)
+            # block_update_ij $r $c $val # hack! shouldn't be accessed
+            # _colors[$val]=$c_temp
 
             let board[index]=val
             break;
@@ -188,11 +192,14 @@ function key_react {
 
 function figlet_wrap {
     > /dev/null which figlet && {
-        /usr/bin/figlet $@
+        # for calculation of rescaling
+        LINES=$(tput lines)
+        let offset_figlet_y="LINES - board_max_y/2 - 4"
+        tput cup $offset_figlet_y 0;
+        /usr/bin/figlet -c -w $COLUMNS "$*"
         return
     }
 
-    shift 3
     echo $*
     echo "install 'figlet' to display large characters."
 }
@@ -201,7 +208,7 @@ function end_game {
     if (( $1 == 1 )); then
         box_board_update
         status="YOU WON"
-        tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
+        figlet_wrap $status
         tput cup $LINES 0;
         echo -n "Want to keep on going (Y/N): "
         read -d '' -sn 1 result > /dev/null
@@ -216,7 +223,7 @@ function end_game {
         fi
     else
         status="GAME OVER"
-        tput cup $offset_figlet_y 0; figlet_wrap -c -w $COLUMNS $status
+        figlet_wrap $status
     fi
 
     box_board_terminate
@@ -255,7 +262,8 @@ function main {
     while true; do
         let change && {
             generate_piece
-            box_board_tput_status; status
+            # flick the generated piece
+            # box_board_tput_status; status
             box_board_update
             change=0
             let moves++
