@@ -4,6 +4,9 @@ default:
 	./main.sh
 	echo "This was the DEMO, use make install"
 
+debug:
+	./main.sh -d /tmp/gtmp
+
 all:
 	@echo "build programs lib, doc."
 

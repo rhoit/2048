@@ -2,15 +2,15 @@
 
 function Usage {
     echo -e "Usage:  2048 [OPTIONS]";
-    echo -e "\t-b | --board\tboard size"
-    echo -e "\t-l | --level\tlevel 3-9"
-    echo -e "\t-d | --debug\tdebug info"
-    echo -e "\t-h | --help\tDisplay this message"
-    echo -e "\t-v | --version\tversion information"
+    echo -e "\t-b | --board [0-9]\tBoard size (default)"
+    echo -e "\t-t | --targe [0-9]\tCustom target"
+    echo -e "\t-d | --debug [FILE]\tDebug info to file provided"
+    echo -e "\t-h | --help\t\tDisplay this message"
+    echo -e "\t-v | --version\t\tVersion information"
 }
 
-TEMP=$(getopt -o b:l:dhv\
-              -l board:,level:,debug,help,version\
+TEMP=$(getopt -o b:l:d:hv\
+              -l board:,level:,debug:,help,version\
               -n "2048"\
               -- "$@")
 
@@ -21,12 +21,13 @@ eval set -- "$TEMP"
 board_size=4
 target=2048
 
+export WD="$(dirname $(readlink $0 || echo $0))"
 exec 3> /dev/null
 
 while true; do
     case $1 in
         -b|--board)   board_size=$2; shift 2;;
-        -l|--level)   level=$2; shift 2;;
+        -t|--target)  target=$2; shift 2;;
         -d|--debug)   exec 3>$2; shift 2;;
         -h|--help)    Usage; exit;;
         -v|--version) cat $WD/version; exit;;
@@ -34,12 +35,11 @@ while true; do
     esac
 done
 
-#exec 3>/tmp/gtmp
 exec 2>&3 # redirecting errors
 
 # extra argument
 for arg do
-    level=$arg
+    board_size=$arg
     break
 done
 
@@ -69,7 +69,6 @@ _colors[512]="\e[1;38;5;9;48;5;11m"
 _colors[1024]="\e[1;38;5;22;48;5;226m"
 _colors[2048]="\e[1;38;5;8;48;5;237m"
 
-export WD="$(dirname $(readlink $0 || echo $0))"
 export WD_BOARD=$WD/ASCII-board
 
 source $WD_BOARD/board.sh
@@ -193,10 +192,10 @@ function key_react {
 function figlet_wrap {
     > /dev/null which figlet && {
         # for calculation of rescaling
-        LINES=$(tput lines)
-        let offset_figlet_y="LINES - board_max_y/2 - 4"
+        let offset_figlet_y="board_max_y - size * b_height + 3"
         tput cup $offset_figlet_y 0;
         /usr/bin/figlet -c -w $COLUMNS "$*"
+        tput cup $board_max_y 0;
         return
     }
 
@@ -238,14 +237,6 @@ function status {
 	echo
 }
 
-function box_board_refresh_hook {
-    # this function is overrides the box_board method
-    box_board_init $board_size
-    echo -e $header
-    status
-    box_board_print $board_size
-}
-
 function main {
     let N="board_size * board_size"
 
@@ -256,16 +247,20 @@ function main {
         # let board[i] && let blocks++
     done
 
-    box_board_refresh_hook
+    box_board_init $board_size
+    echo -e $header
+    status
+    box_board_print $board_size
 
     generate_piece
     while true; do
         let change && {
             generate_piece
             # flick the generated piece
-            # box_board_tput_status; status
+            box_board_tput_status; status
             box_board_update
             change=0
+            echo moves: $moves >&3
             let moves++
         } #<&-
 
