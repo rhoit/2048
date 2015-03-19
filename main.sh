@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 
 function Usage {
-    echo -e "Usage:  2048 [OPTIONS]";
-    echo -e "\t-b | --board [0-9]\tBoard size (default)"
-    echo -e "\t-t | --targe [0-9]\tCustom target"
-    echo -e "\t-d | --debug [FILE]\tDebug info to file provided"
-    echo -e "\t-h | --help\t\tDisplay this message"
-    echo -e "\t-v | --version\t\tVersion information"
+    echo -e "Usage: 2048 [OPTIONS]";
+    echo -e "\t-b | --board [0-9]\tboard size (default)"
+    echo -e "\t-t | --target [0-9]\tcustom target"
+    echo -e "\t-d | --debug [FILE]\tdebug info to file provided"
+    echo -e "\t-h | --help\t\tdisplay this message"
+    echo -e "\t-v | --version\t\tversion information"
 }
 
-TEMP=$(getopt -o b:l:d:hv\
+GETOPT=$(getopt -o b:l:d:hv\
               -l board:,level:,debug:,help,version\
               -n "2048"\
               -- "$@")
 
-if [ $? != "0" ]; then exit 1; fi
+if [ $? != "0" ]; then exit 1; fi # if invalid options
 
-eval set -- "$TEMP"
+eval set -- "$GETOPT"
 
 board_size=4
 target=2048
@@ -112,21 +112,21 @@ function generate_piece {
 
 function push_blocks {
     case $4 in
-        u) let first_="$2 * board_size + $1";
-           let second="($2 + $3) * board_size + $1";;
-        d) let first_="(board_size - 1 - $2) * board_size + $1";
-           let second="(board_size - 1 - $2 - $3) * board_size + $1";;
-        l) let first_="$1 * board_size + $2";
-           let second="$1 * board_size + ($2 + $3)";;
-        r) let first_="$1 * board_size + (board_size - 1 - $2)";
-           let second="$1 * board_size + (board_size - 1 - $2 - $3)";;
+        u) let first="$2 * board_size + $1";
+           let secon="($2 + $3) * board_size + $1";;
+        d) let first="(board_size - 1 - $2) * board_size + $1";
+           let secon="(board_size - 1 - $2 - $3) * board_size + $1";;
+        l) let first="$1 * board_size + $2";
+           let secon="$1 * board_size + ($2 + $3)";;
+        r) let first="$1 * board_size + (board_size - 1 - $2)";
+           let secon="$1 * board_size + (board_size - 1 - $2 - $3)";;
     esac
 
-    let ${board[$first_]} || {
-        let ${board[$second]} && {
+    let ${board[$first]} || {
+        let ${board[$secon]} && {
             if test -z $5; then
-                board[$first_]=${board[$second]}
-                let board[$second]=0
+                board[$first]=${board[$secon]}
+                let board[$secon]=0
                 let change=1
             else
                 let next_mov++
@@ -135,15 +135,15 @@ function push_blocks {
         return
     }
 
-    let ${board[$second]} && let flag_skip=1
-    let "${board[$first_]}==${board[second]}" && {
+    let ${board[$secon]} && let flag_skip=1
+    let "${board[$first]}==${board[secon]}" && {
         if test -z $5; then
-            let board[$first_]*=2
-            test "${board[first_]}" = "$target" && won_flag=1
-            let board[$second]=0
+            let board[$first]*=2
+            test "${board[first]}" = "$target" && won_flag=1
+            let board[$secon]=0
             let blocks-=1
             let change=1
-            let score+=${board[$first_]}
+            let score+=${board[$first]}
         else
             let next_mov++
         fi
@@ -230,11 +230,11 @@ function end_game {
 }
 
 function status {
-	printf "blocks: %-9d" "$blocks"
-	printf "score: %-9d" "$score"
-	printf "moves: %-9d" "$moves"
-	printf "target: %-9s" "$target"
-	echo
+    printf "blocks: %-9d" "$blocks"
+    printf "score: %-9d" "$score"
+    printf "moves: %-9d" "$moves"
+    printf "target: %-9s" "$target"
+    echo
 }
 
 function main {
