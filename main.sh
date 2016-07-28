@@ -20,9 +20,8 @@ eval set -- "$GETOPT"
 
 board_size=4
 target=2048
-
 export WD="$(dirname $(readlink $0 || echo $0))"
-exec 3> /dev/null
+exec 3>/dev/null
 
 while true; do
     case $1 in
@@ -44,65 +43,47 @@ for arg do
 done
 
 #----------------------------------------------------------------------
-# late loading
+# game LOGIC
 
-c0="\e[1;m"
-c1="\e[1;31m"
-c2="\e[1;38;5;22m"
-c3="\e[1;32m"
-c4="\e[1;38;5;226m"
-c5="\e[1;34m"
-c6="\e[1;35m"
+name_fancy="\e[1;31m2\e[33m0\e[32m4\e[34m8\e[m"
+header="${name_fancy}\e[1m-puzzle\e[m (https://github.com/rhoit/2048)"
 
-header="${c1}2${c4}0${c5}4${c3}8${c0} (https://github.com/rhoit/2048)"
-
-_colors[0]="\e[m"
-_colors[2]="\e[1;33;48;5;24m"
-_colors[4]="\e[1;39;48;5;12m"
-_colors[8]="\e[1;38;5;227;48;5;202m"
-_colors[16]="\e[1;39;48;5;208m"
-_colors[32]="\e[1;39;48;5;9m"
-_colors[64]="\e[1;39;48;5;1m"
-_colors[128]="\e[46;39m"
-_colors[256]="\e[48;5;27;39m"
-_colors[512]="\e[1;38;5;9;48;5;11m"
-_colors[1024]="\e[1;38;5;22;48;5;226m"
-_colors[2048]="\e[1;38;5;8;48;5;237m"
+colors[0]="\e[8m"
+colors[2]="\e[1;33;48;5;24m"
+colors[4]="\e[1;39;48;5;12m"
+colors[8]="\e[1;38;5;227;48;5;202m"
+colors[16]="\e[1;39;48;5;208m"
+colors[32]="\e[1;39;48;5;9m"
+colors[64]="\e[1;39;48;5;1m"
+colors[128]="\e[46;39m"
+colors[256]="\e[48;5;27;39m"
+colors[512]="\e[1;38;5;9;48;5;11m"
+colors[1024]="\e[1;38;5;22;48;5;226m"
+colors[2048]="\e[1;38;5;8;48;5;237m"
 
 export WD_BOARD=$WD/ASCII-board
-
 source $WD_BOARD/board.sh
-
-score=0 moves=0 won_flag=0
 ESC=$'\e' # escape byte
-
-trap "end_game 0; exit" INT #handle INT signal
 
 function generate_piece {
     change=1
-    while (( blocks < N )); do
+    while (( tiles < N )); do
         let index=RANDOM%N
         let board[index] || {
             local val=$((RANDOM%10?2:4))
-            let blocks++
-
+            let tiles++
             # just for some delay effects/invert color
-            # NOTE: this is the dirty hack!
-            # local r=$((index/board_size))
-            # local c=$((index-r*board_size))
-            # local c_temp=${_colors[val]}
-            # _colors[$val]="\e[30;48;5;15m"
-            # LINES=$(tput lines)
-            # block_update_ij $r $c $val # hack! shouldn't be accessed
-            # _colors[$val]=$c_temp
-
+            local r=$((index/board_size))
+            local c=$((index-r*board_size))
+            board_vt100_tile="\e[30;48;5;15m"
+            board_tile_update_ij $r $c $val
             let board[index]=val
             break;
         }
     done
 }
 
-# perform push operation between two blocks
+# perform push operation between two tiles
 # inputs:
 #   $1 - push position, for horizontal push this is row, for vertical column
 #   $2 - recipient piece, this will hold result if moving or joining
@@ -110,7 +91,7 @@ function generate_piece {
 #   $4 - direction of push, can be either "up", "down", "left" or "right"
 #   $5 - if anything is passed, do not perform the push, only update number of valid moves
 
-function push_blocks {
+function push_tiles {
     case $4 in
         u) let first="$2 * board_size + $1";
            let secon="($2 + $3) * board_size + $1";;
@@ -141,7 +122,7 @@ function push_blocks {
             let board[$first]*=2
             test "${board[first]}" = "$target" && won_flag=1
             let board[$secon]=0
-            let blocks-=1
+            let tiles-=1
             let change=1
             let score+=${board[$first]}
         else
@@ -157,7 +138,7 @@ function apply_push { # $1: direction; $2: mode
             let increment_max="board_size - 1 - j"
             for ((k=1; k <= $increment_max; k++)); do
                 let flag_skip && break
-                push_blocks $i $j $k $1 $2
+                push_tiles $i $j $k $1 $2
             done
         done
     done
@@ -191,21 +172,20 @@ function key_react {
 
 function figlet_wrap {
     > /dev/null which figlet && {
-        # for calculation of rescaling
-        let offset_figlet_y="board_max_y - size * b_height + 3"
+        let offset_figlet_y="_max_y - board_size * _tile_height + 2"
         tput cup $offset_figlet_y 0;
         /usr/bin/figlet -c -w $COLUMNS "$*"
-        tput cup $board_max_y 0;
+        tput cup $_max_y 0;
         return
     }
 
-    echo $*
+    echo $@
     echo "install 'figlet' to display large characters."
 }
 
 function end_game {
     if (( $1 == 1 )); then
-        box_board_update
+        board_update
         status="YOU WON"
         figlet_wrap $status
         tput cup $LINES 0;
@@ -216,7 +196,7 @@ function end_game {
             target="∞"
             won_flag=0
             tput cup 2 0
-            box_board_print $board_size
+            board_print $board_size
             unset old_board
             return
         fi
@@ -225,12 +205,11 @@ function end_game {
         figlet_wrap $status
     fi
 
-    box_board_terminate
     exit
 }
 
 function status {
-    printf "blocks: %-9d" "$blocks"
+    printf "tiles: %-9d" "$tiles"
     printf "score: %-9d" "$score"
     printf "moves: %-9d" "$moves"
     printf "target: %-9s" "$target"
@@ -240,33 +219,35 @@ function status {
 function main {
     let N="board_size * board_size"
 
-    let blocks=0
+    let tiles=0
     for ((i=0; i < N; i++)); do
         let old_board[i]=0
         let board[i]=0 #$i%3?0:1024
-        # let board[i] && let blocks++
+        # let board[i] && let tiles++
     done
 
-    box_board_init $board_size
+    board_init $board_size
     echo -e $header
     status
-    box_board_print $board_size
+    board_print $board_size
 
     generate_piece
     while true; do
         let change && {
             generate_piece
             # flick the generated piece
-            box_board_tput_status; status
-            box_board_update
+            board_tput_status; status
+            board_update
             change=0
             echo moves: $moves >&3
             let moves++
         } #<&-
 
         key_react # before end game check, so player can see last board state
-        let blocks==N && check_moves
+        let tiles==N && check_moves
     done
 }
 
+score=0 moves=0 won_flag=0
+trap "end_game 0; exit" INT #handle INTTRUPT
 main
