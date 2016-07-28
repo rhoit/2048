@@ -1,4 +1,4 @@
-#+TITLE: 2048
+#+TITLE: 2048-puzzle
 #+STARTUP: showall
 
 Bash implementation of [[http://gabrielecirulli.github.io/2048][2048]] game.
@@ -37,7 +37,7 @@ based on [[https://github.com/mydzor/bash2048][bash2048]]
 * Playing
 
   #+BEGIN_SRC language
-    $ 2048
+    $ 2048-puzzle
   #+END_SRC
 
   use arrow keys to navigate.
