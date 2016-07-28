@@ -1,48 +1,25 @@
-sources = $(wildcard *.sh)
+PKG_NAME = 2048-puzzle
+SOURCES = main.sh
+SUPPORT = README.org AUTHORS LICENCE .version ASCII-board
 
 default:
 	./main.sh
 	echo "This was the DEMO, use make install"
 
-debug:
-	./main.sh -d /tmp/gtmp
-
-all:
-	@echo "build programs lib, doc."
+pop:
+	gnome-terminal -e "./main.sh" --working-directory=${shell pwd}
 
 unlink:
-	rm -f /usr/local/bin/2048
+	rm -f ${DESTDIR}/usr/local/bin/${PKG_NAME}
 
 uninstall: unlink
-	rm -rf /opt/2048
+	rm -rf ${DESTDIR}/opt/${PKG_NAME}
 
 link: unlink
-	ln -s "$(PWD)/main.sh" /usr/local/bin/2048
+	ln -s "${PWD}/main.sh" ${DESTDIR}/usr/local/bin/${PKG_NAME}
 
 install: unlink uninstall
-	mkdir -p /opt/2048
-	cp *sh /opt/2048/
-	ln -s /opt/2048/main.sh /usr/local/bin/2048
-
-installcheck:
-	@echo $(sources)
-
-clean:
-	echo "erase what has been buit (opposite of make all)"
-
-dist:
-	echo "create PACKAGE-VERSION.tar.gz"
-
-distclean:
-	echo "erase what ever done by make all, then clean what ever done by ./configure"
-
-distcheck:
-	echo "sanity check"
-
-check:
-	echo "run the test suite if any"
-
-
-alias:
-	@echo "add alias in to '.bashrc'"
-	@echo "alias 2048='$PWD/main.sh'"
+	mkdir -p ${DESTDIR}/opt/${PKG_NAME}
+	install -m 755 ${SOURCES} -t ${DESTDIR}/opt/${PKG_NAME}/
+	cp -r ${SUPPORT} ${DESTDIR}/opt/${PKG_NAME}/
+	ln -s /opt/${PKG_NAME}/main.sh ${DESTDIR}/usr/local/bin/${PKG_NAME}

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+__PKG_NAME__="2048-puzzle"
+
 function Usage {
-    echo -e "Usage: 2048 [OPTIONS]";
+    echo -e "Usage: $__PKG_NAME__ [OPTIONS]";
     echo -e "\t-b | --board [0-9]\tboard size (default)"
     echo -e "\t-t | --target [0-9]\tcustom target"
     echo -e "\t-d | --debug [FILE]\tdebug info to file provided"
@@ -11,7 +13,7 @@ function Usage {
 
 GETOPT=$(getopt -o b:l:d:hv\
               -l board:,level:,debug:,help,version\
-              -n "2048"\
+              -n "$__PKG_NAME__"\
               -- "$@")
 
 if [ $? != "0" ]; then exit 1; fi # if invalid options

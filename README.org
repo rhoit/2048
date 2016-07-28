@@ -1,0 +1,43 @@
+#+TITLE: 2048
+#+STARTUP: showall
+
+Bash implementation of [[http://gabrielecirulli.github.io/2048][2048]] game.
+
+[[https://raw.github.com/rhoit/2048/dump/screenshot.png]]
+
+based on [[https://github.com/mydzor/bash2048][bash2048]]
+
+* How To Play
+
+  Join the numbers and get to the 2048 tile!
+
+* Installation
+
+** Arch
+   #+BEGIN_SRC bash
+     yaourt -S 2048-puzzle-bash-git
+   #+END_SRC
+
+** Manual
+
+   Download the latest verion from [[https://github.com/rhoit/2048/archive/master.zip][zip]] or [[https://github.com/rhoit/2048/archive/master.tar.gz][tar]] clone the repo.
+
+   | Requirement | Type     |
+   |-------------+----------|
+   | bash        | depends  |
+   | [[https://github.com/bekar/ASCII-board][ASCII-board]] | depends  |
+   | figlet      | optional |
+
+    #+begin_src bash
+      $ cd path-to-2048
+      $ ./configure
+      $ sudo make install
+    #+end_src
+
+* Playing
+
+  #+BEGIN_SRC language
+    $ 2048
+  #+END_SRC
+
+  use arrow keys to navigate.
