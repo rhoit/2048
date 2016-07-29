@@ -65,7 +65,6 @@ colors[2048]="\e[1;38;5;8;48;5;237m"
 
 export WD_BOARD=$WD/ASCII-board
 source $WD_BOARD/board.sh
-ESC=$'\e' # escape byte
 
 function generate_piece {
     change=1
@@ -158,9 +157,9 @@ function check_moves {
 
 function key_react {
     read -d '' -sn 1
-    test "$REPLY" = "$ESC" && {
+    test "$REPLY" == $'\e' && {
         read -d '' -sn 1 -t1
-        test "$REPLY" = "[" && {
+        test "$REPLY" == "[" && {
             read -d '' -sn 1 -t1
             case $REPLY in
                 A) apply_push u;;
@@ -172,20 +171,23 @@ function key_react {
     }
 }
 
+
 function figlet_wrap {
+    let offset_figlet_y="_max_y - board_size * _tile_height + 2"
+    tput cup $offset_figlet_y 0;
+
     > /dev/null which figlet && {
-        let offset_figlet_y="_max_y - board_size * _tile_height + 2"
-        tput cup $offset_figlet_y 0;
-        /usr/bin/figlet -c -w $COLUMNS "$*"
-        tput cup $_max_y 0;
+        /usr/bin/figlet "$@"
         return
     }
 
+    shift 3 # ignore first 3 arg for figlet
     echo $@
     echo "install 'figlet' to display large characters."
 }
 
-function end_game {
+
+function end_game { # $1: end game
     if (( $1 == 1 )); then
         board_update
         status="YOU WON"
