@@ -2,6 +2,7 @@
 
 __PKG_NAME__="2048-puzzle"
 
+
 function Usage {
     echo -e "Usage: $__PKG_NAME__ [OPTIONS]";
     echo -e "\t-b | --board [0-9]\tboard size (default)"
@@ -10,6 +11,7 @@ function Usage {
     echo -e "\t-h | --help\t\tdisplay this message"
     echo -e "\t-v | --version\t\tversion information"
 }
+
 
 GETOPT=$(getopt -o b:l:d:hv\
               -l board:,level:,debug:,help,version\
@@ -35,8 +37,6 @@ while true; do
         --)           shift; break
     esac
 done
-
-exec 2>&3 # redirecting errors
 
 # extra argument
 for arg do
@@ -66,6 +66,7 @@ colors[2048]="\e[1;38;5;8;48;5;237m"
 export WD_BOARD=$WD/ASCII-board
 source $WD_BOARD/board.sh
 
+
 function generate_piece {
     change=1
     while (( tiles < N )); do
@@ -84,6 +85,7 @@ function generate_piece {
     done
 }
 
+
 # perform push operation between two tiles
 # inputs:
 #   $1 - push position, for horizontal push this is row, for vertical column
@@ -91,7 +93,6 @@ function generate_piece {
 #   $3 - originator piece, after moving or joining this will be left empty
 #   $4 - direction of push, can be either "up", "down", "left" or "right"
 #   $5 - if anything is passed, do not perform the push, only update number of valid moves
-
 function push_tiles {
     case $4 in
         u) let first="$2 * board_size + $1";
@@ -132,6 +133,7 @@ function push_tiles {
     }
 }
 
+
 function apply_push { # $1: direction; $2: mode
     for ((i=0; i < $board_size; i++)); do
         for ((j=0; j < $board_size; j++)); do
@@ -143,8 +145,9 @@ function apply_push { # $1: direction; $2: mode
             done
         done
     done
-    let won_flag && end_game 1
+    let won_flag && check_endgame 1
 }
+
 
 function check_moves {
     next_mov=0
@@ -152,8 +155,9 @@ function check_moves {
     apply_push d fake
     apply_push l fake
     apply_push r fake
-    let next_mov==0 && end_game 0
+    let next_mov==0 && check_endgame 0
 }
+
 
 function key_react {
     read -d '' -sn 1
@@ -172,45 +176,29 @@ function key_react {
 }
 
 
-function figlet_wrap {
-    let offset_figlet_y="_max_y - board_size * _tile_height + 2"
-    tput cup $offset_figlet_y 0;
-
-    > /dev/null which figlet && {
-        /usr/bin/figlet "$@"
-        return
-    }
-
-    shift 3 # ignore first 3 arg for figlet
-    echo $@
-    echo "install 'figlet' to display large characters."
-}
-
-
-function end_game { # $1: end game
-    if (( $1 == 1 )); then
-        board_update
-        status="YOU WON"
-        figlet_wrap $status
-        tput cup $LINES 0;
-        echo -n "Want to keep on going (Y/N): "
-        read -d '' -sn 1 result > /dev/null
-        if [[ $result != 'n' && $result != 'N' ]]; then
-            echo -n "Y"
-            target="∞"
-            won_flag=0
-            tput cup 2 0
-            board_print $board_size
-            unset old_board
-            return
-        fi
-    else
-        status="GAME OVER"
-        figlet_wrap $status
+function check_endgame { # $1: end game
+    if (( $1 == 0 )); then
+        board_banner "GAME OVER"
+        exit
     fi
 
-    exit
+    board_update
+    board_banner "YOU WON"
+    tput cup $((offset_figlet_y+6)) $offset_x
+    tput cnorm # show cursor
+    stty echo # enable output
+    echo -n "Want to keep on going (Y/N): "
+    read result
+    if [[ $result != 'n' && $result != 'N' ]]; then
+        tput civis # hide cursor
+        stty -echo # disable output
+        target="∞" won_flag=0
+        unset board_old
+        board_tput_status; status
+        board_print $board_size
+    fi
 }
+
 
 function status {
     printf "tiles: %-9d" "$tiles"
@@ -220,20 +208,14 @@ function status {
     echo
 }
 
-function main {
-    let N="board_size * board_size"
 
+function game_loop {
     let tiles=0
     for ((i=0; i < N; i++)); do
         let old_board[i]=0
         let board[i]=0 #$i%3?0:1024
         # let board[i] && let tiles++
     done
-
-    board_init $board_size
-    echo -e $header
-    status
-    board_print $board_size
 
     generate_piece
     while true; do
@@ -245,13 +227,21 @@ function main {
             change=0
             echo moves: $moves >&3
             let moves++
-        } #<&-
+        }
 
         key_react # before end game check, so player can see last board state
         let tiles==N && check_moves
     done
 }
 
+
 score=0 moves=0 won_flag=0
-trap "end_game 0; exit" INT #handle INTTRUPT
-main
+trap "check_endgame 0; exit" INT #handle INTTRUPT
+let N="board_size * board_size"
+board_init $board_size
+exec 2>&3 # redirecting errors
+
+echo -e $header
+status
+board_print $board_size
+game_loop
