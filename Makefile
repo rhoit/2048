@@ -7,7 +7,7 @@ default:
 	echo "This was the DEMO, use make install"
 
 pop:
-	gnome-terminal -e "./main.sh" --working-directory=${shell pwd}
+	gnome-terminal -e "./main.sh -d /tmp/board" --working-directory=${shell pwd}
 
 unlink:
 	rm -f ${DESTDIR}/usr/local/bin/${PKG_NAME}

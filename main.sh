@@ -1,7 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 __PKG_NAME__="2048-puzzle"
-
 
 function Usage {
     echo -e "Usage: $__PKG_NAME__ [OPTIONS]";
@@ -13,34 +12,34 @@ function Usage {
 }
 
 
-GETOPT=$(getopt -o b:l:d:hv\
-              -l board:,level:,debug:,help,version\
-              -n "$__PKG_NAME__"\
-              -- "$@")
+GETOPT=$(getopt -o b:l:d:hv \
+                -l board:,level:,debug:,help,version \
+                -n "$__PKG_NAME__" \
+                -- "$@")
 
-if [ $? != "0" ]; then exit 1; fi # if invalid options
+[[ $? != "0" ]] && exit 1
 
 eval set -- "$GETOPT"
 
-board_size=4
-target=2048
 export WD="$(dirname $(readlink $0 || echo $0))"
+BOARD_SIZE=4
+TARGET=2048
 exec 3>/dev/null
 
 while true; do
     case $1 in
-        -b|--board)   board_size=$2; shift 2;;
-        -t|--target)  target=$2; shift 2;;
+        -b|--board)   BOARD_SIZE=$2; shift 2;;
+        -t|--target)  TARGET=$2; shift 2;;
         -d|--debug)   exec 3>$2; shift 2;;
         -h|--help)    Usage; exit;;
-        -v|--version) cat $WD/version; exit;;
+        -v|--version) cat $WD/.version; exit;;
         --)           shift; break
     esac
 done
 
 # extra argument
 for arg do
-    board_size=$arg
+    BOARD_SIZE=$arg
     break
 done
 
@@ -63,7 +62,7 @@ colors[512]="\e[1;38;5;9;48;5;11m"
 colors[1024]="\e[1;38;5;22;48;5;226m"
 colors[2048]="\e[1;38;5;8;48;5;237m"
 
-export WD_BOARD=$WD/ASCII-board
+export WD_BOARD="$WD/ASCII-board"
 source $WD_BOARD/board.sh
 
 
@@ -75,8 +74,8 @@ function generate_piece {
             local val=$((RANDOM%10?2:4))
             let tiles++
             # just for some delay effects/invert color
-            local r=$((index/board_size))
-            local c=$((index-r*board_size))
+            local r=$((index/BOARD_SIZE))
+            local c=$((index-r*BOARD_SIZE))
             board_vt100_tile="\e[30;48;5;15m"
             board_tile_update_ij $r $c $val
             let board[index]=val
@@ -95,14 +94,14 @@ function generate_piece {
 #   $5 - if anything is passed, do not perform the push, only update number of valid moves
 function push_tiles {
     case $4 in
-        u) let first="$2 * board_size + $1";
-           let secon="($2 + $3) * board_size + $1";;
-        d) let first="(board_size - 1 - $2) * board_size + $1";
-           let secon="(board_size - 1 - $2 - $3) * board_size + $1";;
-        l) let first="$1 * board_size + $2";
-           let secon="$1 * board_size + ($2 + $3)";;
-        r) let first="$1 * board_size + (board_size - 1 - $2)";
-           let secon="$1 * board_size + (board_size - 1 - $2 - $3)";;
+        u) let first="$2 * BOARD_SIZE + $1";
+           let secon="($2 + $3) * BOARD_SIZE + $1";;
+        d) let first="(BOARD_SIZE - 1 - $2) * BOARD_SIZE + $1";
+           let secon="(BOARD_SIZE - 1 - $2 - $3) * BOARD_SIZE + $1";;
+        l) let first="$1 * BOARD_SIZE + $2";
+           let secon="$1 * BOARD_SIZE + ($2 + $3)";;
+        r) let first="$1 * BOARD_SIZE + (BOARD_SIZE - 1 - $2)";
+           let secon="$1 * BOARD_SIZE + (BOARD_SIZE - 1 - $2 - $3)";;
     esac
 
     let ${board[$first]} || {
@@ -122,7 +121,7 @@ function push_tiles {
     let "${board[$first]}==${board[secon]}" && {
         if test -z $5; then
             let board[$first]*=2
-            test "${board[first]}" = "$target" && won_flag=1
+            test "${board[first]}" = "$TARGET" && won_flag=1
             let board[$secon]=0
             let tiles-=1
             let change=1
@@ -135,10 +134,10 @@ function push_tiles {
 
 
 function apply_push { # $1: direction; $2: mode
-    for ((i=0; i < $board_size; i++)); do
-        for ((j=0; j < $board_size; j++)); do
+    for ((i=0; i < $BOARD_SIZE; i++)); do
+        for ((j=0; j < $BOARD_SIZE; j++)); do
             flag_skip=0
-            let increment_max="board_size - 1 - j"
+            let increment_max="BOARD_SIZE - 1 - j"
             for ((k=1; k <= $increment_max; k++)); do
                 let flag_skip && break
                 push_tiles $i $j $k $1 $2
@@ -176,8 +175,8 @@ function key_react {
 }
 
 
-function check_endgame { # $1: end game
-    if (( $1 == 0 )); then
+function check_endgame { # $1: force end flag
+    if (( "$1" == 0 )); then
         board_banner "GAME OVER"
         exit
     fi
@@ -192,10 +191,10 @@ function check_endgame { # $1: end game
     if [[ $result != 'n' && $result != 'N' ]]; then
         tput civis # hide cursor
         stty -echo # disable output
-        target="∞" won_flag=0
+        TARGET="∞" won_flag=0
         unset board_old
         board_tput_status; status
-        board_print $board_size
+        board_print $BOARD_SIZE
     fi
 }
 
@@ -204,13 +203,13 @@ function status {
     printf "tiles: %-9d" "$tiles"
     printf "score: %-9d" "$score"
     printf "moves: %-9d" "$moves"
-    printf "target: %-9s" "$target"
+    printf "target: %-9s" "$TARGET"
     echo
 }
 
 
 function game_loop {
-    let tiles=0
+    declare tiles=0
     for ((i=0; i < N; i++)); do
         let old_board[i]=0
         let board[i]=0 #$i%3?0:1024
@@ -225,7 +224,6 @@ function game_loop {
             board_tput_status; status
             board_update
             change=0
-            echo moves: $moves >&3
             let moves++
         }
 
@@ -236,12 +234,12 @@ function game_loop {
 
 
 score=0 moves=0 won_flag=0
-trap "check_endgame 0; exit" INT #handle INTTRUPT
-let N="board_size * board_size"
-board_init $board_size
+trap "check_endgame 0; exit" INT #handle INTERRUPT
+let N="BOARD_SIZE * BOARD_SIZE"
+board_init $BOARD_SIZE
 exec 2>&3 # redirecting errors
 
 echo -e $header
 status
-board_print $board_size
+board_print $BOARD_SIZE
 game_loop
