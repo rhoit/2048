@@ -104,10 +104,10 @@ function push_tiles {
            let secon="$1 * BOARD_SIZE + (BOARD_SIZE - 1 - $2 - $3)";;
     esac
 
-    let ${board[$first]} || {
-        let ${board[$secon]} && {
+    let "${board[first]}" || {
+        let "${board[secon]}" && {
             if test -z $5; then
-                board[$first]=${board[$secon]}
+                board[$first]="${board[$secon]}"
                 let board[$secon]=0
                 let change=1
             else
@@ -117,8 +117,8 @@ function push_tiles {
         return
     }
 
-    let ${board[$secon]} && let flag_skip=1
-    let "${board[$first]}==${board[secon]}" && {
+    let "${board[secon]}" && let flag_skip=1
+    test "${board[first]}" == "${board[secon]}" && {
         if test -z $5; then
             let board[$first]*=2
             test "${board[first]}" = "$TARGET" && won_flag=1
@@ -175,12 +175,7 @@ function key_react {
 }
 
 
-function check_endgame { # $1: force end flag
-    if (( "$1" == 0 )); then
-        board_banner "GAME OVER"
-        exit
-    fi
-
+function check_endgame {
     board_update
     board_banner "YOU WON"
     tput cup $((offset_figlet_y+6)) $offset_x
@@ -210,17 +205,12 @@ function status {
 
 function game_loop {
     declare tiles=0
-    for ((i=0; i < N; i++)); do
-        let old_board[i]=0
-        let board[i]=0 #$i%3?0:1024
-        # let board[i] && let tiles++
-    done
-
+    # let board[1]=1024
+    # let board[2]=1024
     generate_piece
     while true; do
         let change && {
             generate_piece
-            # flick the generated piece
             board_tput_status; status
             board_update
             change=0
@@ -228,13 +218,13 @@ function game_loop {
         }
 
         key_react # before end game check, so player can see last board state
-        let tiles==N && check_moves
+        test $tiles == $N && check_moves
     done
 }
 
 
-score=0 moves=0 won_flag=0
-trap "check_endgame 0; exit" INT #handle INTERRUPT
+declare score=0 moves=0 won_flag=0
+trap "board_banner 'GAME OVER'; exit" INT #handle INTERRUPT
 let N="BOARD_SIZE * BOARD_SIZE"
 board_init $BOARD_SIZE
 exec 2>&3 # redirecting errors
