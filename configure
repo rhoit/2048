@@ -1,11 +1,20 @@
 #!/bin/bash
 
-git submodule init
-git submodule update
+if test ! -d "/opt/ASCII-board/"; then
+    >/dev/null which git && {
+        git submodule init
+        git submodule update
+    } || {
+        echo "install 'ASCII-board' from https://github.com/bekar/ASCII-board"
+    }
+fi
 
-> /dev/null which figlet || {
+>/dev/null which figlet || {
     echo "install 'figlet' to display large characters."
 }
 
-git describe --tags > .version
+>/dev/null which git && \
+    git describe --tags > .version || \
+        echo "unknow-zip-version" > .version
+
 cat .version
