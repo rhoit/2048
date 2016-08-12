@@ -62,14 +62,14 @@ colors[512]="\e[1;38;5;9;48;5;11m"
 colors[1024]="\e[1;38;5;22;48;5;226m"
 colors[2048]="\e[1;38;5;8;48;5;237m"
 
-export WD_BOARD="$WD/ASCII-board"
+export WD_BOARD=${WD_BOARD:-"$WD/ASCII-board"}
 source $WD_BOARD/board.sh
 
 
 function generate_piece {
     change=1
     while (( tiles < N )); do
-        let index=RANDOM%N
+        local index=$((RANDOM%N))
         let board[index] || {
             local val=$((RANDOM%10?2:4))
             let tiles++
@@ -93,6 +93,7 @@ function generate_piece {
 #   $4 - direction of push, can be either "up", "down", "left" or "right"
 #   $5 - if anything is passed, do not perform the push, only update number of valid moves
 function push_tiles {
+    local first secon
     case $4 in
         u) let first="$2 * BOARD_SIZE + $1";
            let secon="($2 + $3) * BOARD_SIZE + $1";;
@@ -123,7 +124,7 @@ function push_tiles {
             let board[$first]*=2
             test "${board[first]}" = "$TARGET" && won_flag=1
             let board[$secon]=0
-            let tiles-=1
+            let tiles--
             let change=1
             let score+=${board[$first]}
         else
@@ -144,7 +145,7 @@ function apply_push { # $1: direction; $2: mode
             done
         done
     done
-    let won_flag && check_endgame 1
+    let won_flag && check_endgame
 }
 
 
@@ -154,7 +155,9 @@ function check_moves {
     apply_push d fake
     apply_push l fake
     apply_push r fake
-    let next_mov==0 && check_endgame 0
+    (( next_mov > 0 )) && return
+    board_banner 'GAME OVER'
+    exit
 }
 
 
@@ -225,7 +228,7 @@ function game_loop {
 
 declare score=0 moves=0 won_flag=0
 trap "board_banner 'GAME OVER'; exit" INT #handle INTERRUPT
-let N="BOARD_SIZE * BOARD_SIZE"
+N=$((BOARD_SIZE*BOARD_SIZE))
 board_init $BOARD_SIZE
 exec 2>&3 # redirecting errors
 
