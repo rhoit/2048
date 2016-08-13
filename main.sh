@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 __PKG_NAME__="2048-puzzle"
 
