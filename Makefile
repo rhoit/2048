@@ -22,7 +22,7 @@ install: unlink uninstall
 	mkdir -p ${DESTDIR}/opt/${PKG_NAME}
 	install -m 755 ${SOURCES} -t ${DESTDIR}/opt/${PKG_NAME}/
 	cp -r ${SUPPORT} ${DESTDIR}/opt/${PKG_NAME}/
-	test -e /opt/${PKG_NAME}/ASCII-board/board.sh ||\
-	  rmdir ${DESTDIR}/opt/${PKG_NAME}/ASCII-board &&\
-	    ln -s /opt/ASCII-board/ ${DESTDIR}/opt/${PKG_NAME}/ASCII-board
+	test -e /opt/ASCII-board/board.sh && (\
+	  rmdir -rf ${DESTDIR}/opt/${PKG_NAME}/ASCII-board &&\
+	    ln -s /opt/ASCII-board/ ${DESTDIR}/opt/${PKG_NAME}/) || :
 	ln -s /opt/${PKG_NAME}/main.sh ${DESTDIR}/usr/local/bin/${PKG_NAME}
